@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Opportunity Rescue</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="topbar">
+      <span class="logo">⛑</span>
+      <h1>Opportunity Rescue</h1>
+    </header>
+
+    <!-- Step 1: URL input -->
+    <div id="view-input">
+      <button id="btn-view-all" class="btn-link">📋 View all saved opportunities →</button>
+      <label class="field">
+        <span>Opportunity URL</span>
+        <input id="url-input" type="url" placeholder="https://…" autocomplete="off" />
+      </label>
+      <p id="error-msg" class="error hidden"></p>
+      <p id="status-msg" class="status hidden"></p>
+      <button id="btn-fetch" class="btn primary">Fetch &amp; Analyze</button>
+    </div>
+
+    <!-- Step 2: Editable result -->
+    <div id="view-result" class="hidden">
+      <p class="ok">✓ Extracted — edit anything that looks wrong.</p>
+
+      <label class="field">
+        <span>Title</span>
+        <input id="f-title" type="text" />
+      </label>
+      <div class="two">
+        <label class="field">
+          <span>Organization</span>
+          <input id="f-org" type="text" placeholder="Not found" />
+        </label>
+        <label class="field">
+          <span>Type</span>
+          <input id="f-type" type="text" placeholder="Not found" />
+        </label>
+      </div>
+      <div class="two">
+        <label class="field">
+          <span>Deadline</span>
+          <input id="f-deadline" type="date" />
+        </label>
+        <label class="field">
+          <span>Location</span>
+          <input id="f-location" type="text" placeholder="Not found" />
+        </label>
+      </div>
+
+      <div id="f-deadline-note" class="note hidden"></div>
+      <div id="f-deadline-source" class="note hidden"></div>
+
+      <div id="f-eligibility-block" class="block hidden">
+        <span class="lbl">Eligibility</span>
+        <ul id="f-eligibility"></ul>
+      </div>
+
+      <div id="f-skills-block" class="chips hidden"></div>
+
+      <div id="f-summary-block" class="summary-block hidden">
+        <p id="f-summary"></p>
+      </div>
+
+      <div id="f-missing-block" class="note hidden"></div>
+
+      <div class="next">
+        <span class="next-lbl">NEXT ACTION</span>
+        <p id="next-action-text"></p>
+      </div>
+
+      <div class="row">
+        <button id="btn-back" class="btn ghost">← Back</button>
+        <button id="btn-save" class="btn primary">Save opportunity</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Saved confirmation -->
+    <div id="view-saved" class="hidden">
+      <div class="saved-box">
+        <p class="ok">✓ Saved to Opportunity Rescue!</p>
+        <p class="muted">Open the app to see your full list, track status, and export to calendar.</p>
+        <button id="btn-another" class="btn primary">Add another</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="nextAction.js"></script>
+  <script src="extractor.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

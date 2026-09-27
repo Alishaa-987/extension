@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Opportunity Rescue — All Opportunities</title>
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">⛑</span>
+        <div>
+          <h1>Opportunity Rescue</h1>
+          <p class="tagline">Don't just save opportunities. Rescue them before they disappear.</p>
+        </div>
+      </div>
+      <div class="actions">
+        <select id="filter-select" aria-label="Filter opportunities">
+          <option value="all">All</option>
+          <option value="attention">Needs attention</option>
+          <option value="upcoming">Upcoming</option>
+          <option value="done">Applied</option>
+          <option value="expired">Expired</option>
+        </select>
+        <button id="btn-add" class="btn primary">+ Add opportunity</button>
+      </div>
+    </header>
+
+    <!-- Stats bar -->
+    <section class="stats" id="stats-bar" aria-label="Summary statistics"></section>
+
+    <!-- Cards grid -->
+    <main class="grid" id="cards-grid" aria-live="polite">
+      <div class="empty" id="empty-state">
+        <p>No opportunities saved yet.</p>
+        <button class="btn primary" id="btn-add-empty">Add your first opportunity</button>
+      </div>
+    </main>
+  </div>
+
+  <script src="nextAction.js"></script>
+  <script src="extractor.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>
