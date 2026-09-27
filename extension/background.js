@@ -1,9 +1,57 @@
-// Service worker: handles URL fetch and text extraction.
-// Runs with host_permissions so no CORS restriction applies.
+// Service worker: handles URL fetch, extraction, storage mutations,
+// and deadline notifications.
 
 importScripts('extractor.js', 'nextAction.js');
 
 const STORAGE_KEY = 'opportunity-rescue:v1';
+const ALARM_NAME  = 'deadline-check';
+
+// ── Startup & install: schedule daily alarm + run check immediately ──────────
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create(ALARM_NAME, { periodInMinutes: 60 });
+  checkDeadlines();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  checkDeadlines();
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === ALARM_NAME) checkDeadlines();
+});
+
+// ── Deadline notification check ───────────────────────────────────────────────
+async function checkDeadlines() {
+  const data = await chrome.storage.local.get(STORAGE_KEY);
+  const opps = Array.isArray(data[STORAGE_KEY]) ? data[STORAGE_KEY] : [];
+  const DONE = ['applied', 'accepted', 'rejected'];
+  const today = new Date();
+
+  const urgent = opps.filter((o) => {
+    if (DONE.includes(o.status)) return false;
+    if (!o.deadline) return false;
+    const [y, m, d] = o.deadline.split('-').map(Number);
+    const diff = Math.round((new Date(y, m - 1, d) - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+    return diff >= 0 && diff <= 7;
+  });
+
+  if (urgent.length === 0) return;
+
+  const titles = urgent.slice(0, 3).map((o) => {
+    const [y, m, d] = o.deadline.split('-').map(Number);
+    const diff = Math.round((new Date(y, m - 1, d) - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+    const when = diff === 0 ? 'due TODAY' : diff === 1 ? 'due tomorrow' : `due in ${diff} days`;
+    return `• ${o.title} (${when})`;
+  }).join('\n');
+
+  chrome.notifications.create('deadline-alert-' + Date.now(), {
+    type: 'basic',
+    iconUrl: 'icon48.png',
+    title: `⛑ ${urgent.length} opportunit${urgent.length === 1 ? 'y' : 'ies'} need attention`,
+    message: titles + (urgent.length > 3 ? `\n…and ${urgent.length - 3} more` : ''),
+    priority: 2,
+  });
+}
 
 /** Strip HTML tags and collapse whitespace to get readable plain text. */
 function htmlToText(html) {

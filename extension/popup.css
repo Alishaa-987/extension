@@ -11,6 +11,17 @@
   --radius: 8px;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111318;
+    --surface: #1b1e25;
+    --text: #eceef3;
+    --muted: #a0a6b4;
+    --border: #2c313b;
+    --primary: #4589ff;
+  }
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -20,6 +31,7 @@ body {
   color: var(--text);
   font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   padding: 14px 16px 18px;
+  color-scheme: light dark;
 }
 
 /* Header */
@@ -30,9 +42,25 @@ body {
   margin-bottom: 14px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
+  justify-content: space-between;
 }
 .logo { font-size: 22px; }
-h1 { font-size: 16px; font-weight: 700; }
+h1 { font-size: 16px; font-weight: 700; flex: 1; }
+
+.btn-view-all {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-view-all:hover { background: var(--bg); }
 
 /* Fields */
 .field {
@@ -110,22 +138,6 @@ h1 { font-size: 16px; font-weight: 700; }
 .saved-box { text-align: center; padding: 10px 0; }
 .saved-box .ok { margin-bottom: 8px; }
 .saved-box .btn { margin-top: 12px; }
-
-/* View-all link button */
-.btn-link {
-  background: none;
-  border: none;
-  color: var(--primary);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0 0 10px;
-  display: block;
-  text-align: left;
-  width: 100%;
-}
-.btn-link:hover { text-decoration: underline; }
 
 /* Hidden utility */
 .hidden { display: none !important; }

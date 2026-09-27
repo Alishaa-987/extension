@@ -1,7 +1,10 @@
 // dashboard.js — full opportunity list for the extension dashboard tab.
-// Relies on nextAction.js loaded via <script> tag.
+// Reads chrome.storage.local directly — no service worker round-trip needed.
+// Relies on nextAction.js loaded via <script> tag for: urgency, nextAction, daysLeft, STATUSES, STATUS_LABEL.
 
 (function () {
+  var STORAGE_KEY = 'opportunity-rescue:v1';
+
   var URGENCY_LABEL = {
     critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low',
     unknown: 'No deadline', expired: 'Expired', done: 'Done',
@@ -18,12 +21,22 @@
   var allOpps = [];
   var currentFilter = 'all';
 
-  // ── Boot ─────────────────────────────────────────────────────────────────
-  chrome.runtime.sendMessage({ type: 'LOAD_ALL' }, function (resp) {
-    if (resp && resp.ok) {
-      allOpps = resp.opps || [];
+  // ── Boot: read storage directly ───────────────────────────────────────────
+  function loadAndRender() {
+    chrome.storage.local.get(STORAGE_KEY, function (data) {
+      allOpps = Array.isArray(data[STORAGE_KEY]) ? data[STORAGE_KEY] : [];
+      render();
+    });
+  }
+
+  loadAndRender();
+
+  // Re-render whenever storage changes (e.g. popup saves a new opportunity)
+  chrome.storage.onChanged.addListener(function (changes) {
+    if (changes[STORAGE_KEY]) {
+      allOpps = Array.isArray(changes[STORAGE_KEY].newValue) ? changes[STORAGE_KEY].newValue : [];
+      render();
     }
-    render();
   });
 
   // ── Filter select ─────────────────────────────────────────────────────────
@@ -32,14 +45,12 @@
     render();
   });
 
-  // ── Add button ────────────────────────────────────────────────────────────
-  function openPopup() {
-    chrome.runtime.getURL('popup.html');
-    // Open the popup by navigating to it as a tab (fallback — popup is also openable via toolbar)
-    chrome.windows.create({ url: chrome.runtime.getURL('popup.html'), type: 'popup', width: 420, height: 580 });
+  // ── Add button — opens popup.html in a small window ───────────────────────
+  function openAddWindow() {
+    chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
   }
-  document.getElementById('btn-add').addEventListener('click', openPopup);
-  document.getElementById('btn-add-empty').addEventListener('click', openPopup);
+  document.getElementById('btn-add').addEventListener('click', openAddWindow);
+  document.getElementById('btn-add-empty').addEventListener('click', openAddWindow);
 
   // ── Render ────────────────────────────────────────────────────────────────
   function render() {
@@ -73,7 +84,7 @@
   function stat(num, label, cls) {
     return '<div class="stat' + (cls ? ' ' + cls : '') + '">' +
       '<span class="num">' + num + '</span>' +
-      '<span class="lbl">' + label + '</span>' +
+      '<span class="lbl">' + escHtml(label) + '</span>' +
       '</div>';
   }
 
@@ -85,19 +96,16 @@
     var visible = allOpps
       .filter(function(o) { return filterFn(urgency(o)); })
       .slice()
-      .sort(function(a, b) { return rescueScore(b) - rescueScore(a); });
+      .sort(function(a, b) { return calcScore(b) - calcScore(a); });
 
-    // Remove existing cards (keep the empty state div)
-    var existing = grid.querySelectorAll('.card');
-    existing.forEach(function(c) { c.remove(); });
+    // Remove existing cards (keep the empty-state div)
+    grid.querySelectorAll('.card').forEach(function(c) { c.remove(); });
 
     if (visible.length === 0) {
       empty.style.display = '';
     } else {
       empty.style.display = 'none';
-      visible.forEach(function(o) {
-        grid.appendChild(buildCard(o));
-      });
+      visible.forEach(function(o) { grid.appendChild(buildCard(o)); });
     }
   }
 
@@ -109,7 +117,7 @@
 
     var card = el('article', 'card u-' + u);
 
-    // Head: urgency pill + type pill + delete button
+    // Head
     var head = el('div', 'card-head');
     head.appendChild(pill(URGENCY_LABEL[u], 'pill u-' + u));
     if (opp.type) head.appendChild(pill(opp.type, 'pill type-pill'));
@@ -129,7 +137,8 @@
 
     // Deadline
     var dlLine = el('p', 'deadline-line');
-    dlLine.innerHTML = '⏰ ' + esc(dl) + (opp.deadline ? ' <span class="date-raw">· ' + esc(opp.deadline) + '</span>' : '');
+    dlLine.innerHTML = '⏰ ' + escHtml(dl) +
+      (opp.deadline ? ' <span class="date-raw">· ' + escHtml(opp.deadline) + '</span>' : '');
     card.appendChild(dlLine);
 
     // Summary
@@ -158,7 +167,7 @@
     }
     card.appendChild(nb);
 
-    // Footer: status select + open link
+    // Footer
     var foot = el('div', 'card-foot');
     var sel = document.createElement('select');
     sel.setAttribute('aria-label', 'Status');
@@ -182,52 +191,53 @@
     return card;
   }
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // ── Storage mutations (direct, no service worker) ─────────────────────────
+  function saveAll(opps) {
+    var obj = {};
+    obj[STORAGE_KEY] = opps;
+    chrome.storage.local.set(obj);
+  }
+
   function updateStatus(id, status) {
-    chrome.runtime.sendMessage({ type: 'UPDATE_STATUS', id: id, status: status }, function () {
-      var opp = allOpps.find(function(o) { return o.id === id; });
-      if (opp) opp.status = status;
-      render();
-    });
+    allOpps = allOpps.map(function(o) { return o.id === id ? Object.assign({}, o, { status: status }) : o; });
+    saveAll(allOpps);
+    render();
   }
 
   function deleteOpp(id) {
-    chrome.runtime.sendMessage({ type: 'DELETE_OPPORTUNITY', id: id }, function () {
-      allOpps = allOpps.filter(function(o) { return o.id !== id; });
-      render();
-    });
+    allOpps = allOpps.filter(function(o) { return o.id !== id; });
+    saveAll(allOpps);
+    render();
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+  function calcScore(opp) {
+    var W = { critical: 100, high: 70, medium: 40, unknown: 25, low: 10, expired: -1, done: -1 };
+    var S = { saved: 30, reviewing: 20, started: 10 };
+    var u = urgency(opp);
+    if (W[u] < 0) return -1;
+    return W[u] + (S[opp.status] || 0);
+  }
+
+  function deadlineText(deadline) {
+    var d = daysLeft(deadline);
+    if (d === null) return 'No deadline found';
+    if (d < 0) return 'Closed ' + (-d) + ' day' + (-d === 1 ? '' : 's') + ' ago';
+    if (d === 0) return 'Due today';
+    return d + ' day' + (d === 1 ? '' : 's') + ' left';
+  }
+
   function el(tag, cls) {
-    var e = document.createElement(tag);
-    if (cls) e.className = cls;
-    return e;
+    var e = document.createElement(tag); if (cls) e.className = cls; return e;
   }
 
   function pill(text, cls) {
     var s = el('span', cls); s.textContent = text; return s;
   }
 
-  function esc(s) {
+  function escHtml(s) {
     return String(s || '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  function deadlineText(deadline) {
-    var d = daysLeft(deadline);
-    if (d === null) return 'No deadline found';
-    if (d < 0) return 'Closed ' + (-d) + ' day' + (d === -1 ? '' : 's') + ' ago';
-    if (d === 0) return 'Due today';
-    return d + ' day' + (d === 1 ? '' : 's') + ' left';
-  }
-
-  function rescueScore(opp) {
-    var URGENCY_WEIGHT = { critical: 100, high: 70, medium: 40, unknown: 25, low: 10, expired: -1, done: -1 };
-    var STATUS_WEIGHT  = { saved: 30, reviewing: 20, started: 10 };
-    var u = urgency(opp);
-    if (URGENCY_WEIGHT[u] < 0) return -1;
-    return URGENCY_WEIGHT[u] + (STATUS_WEIGHT[opp.status] || 0);
   }
 
 })();
